@@ -39,15 +39,28 @@ def get_gateway_ip():
         return '192.168.1.1'
 
 def send_udp_packet(ip, data, port=8021):
+    sock = None
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind(('', 8022))
-        sock.sendto(data, (ip, port))
-        print(f"Send to {ip}:{port} from port 8022 -> {data.hex()}")
+        # Enable address reuse BEFORE binding
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
+        # For macOS/BSD, also enable SO_REUSEPORT for UDP
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        
+        sock.bind(('', 8022))  # Now can bind to 8022 even if in use
+        bytes_sent = sock.sendto(data, (ip, port))
+        if bytes_sent != len(data):
+            print(f"Warning: Only {bytes_sent}/{len(data)} bytes accepted")
+        local_addr = sock.getsockname()
+        local_ip, local_port = local_addr
+        
+        print(f"Send to {ip}:{port} from port {local_ip}:{local_port} -> {data.hex()}")
     except Exception as e:
         print(f"Failed to send UDP packet: {e}")
     finally:
-        sock.close()
+        if sock:
+            sock.close()
 
 def hexdump(data):
     for i in range(0, len(data), 16):

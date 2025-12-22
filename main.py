@@ -418,7 +418,7 @@ class ZTECsiTool:
         if hasattr(self, 'ok_timeout_timer') and self.ok_timeout_timer:
             self.ok_timeout_timer.cancel()
         self.ok_received = False
-        self.ok_timeout_timer = threading.Timer(1.0, lambda: self.handle_connection_timeout())
+        self.ok_timeout_timer = threading.Timer(5.0, lambda: self.handle_connection_timeout())
         self.ok_timeout_timer.start()
     
     def handle_connection_timeout(self):

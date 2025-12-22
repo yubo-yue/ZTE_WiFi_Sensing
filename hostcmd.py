@@ -9,7 +9,7 @@ class Command:
     def build_and_send_host_cmd_packet(self, ip, cmd_type, cmd_content, port = 8021):
         try:
             magic = 0xCAFE2025
-            header = struct.pack(">I", magic)
+            header = struct.pack("<Q", magic)
             type_byte = struct.pack("B", cmd_type)
 
             if cmd_content == '':
