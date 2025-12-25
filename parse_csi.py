@@ -83,8 +83,8 @@ class CSVCsiWriter:
         return base_fields + csi_i_fields + csi_q_fields
 
     def write(self, report):
-        if report.get('rx_chain_num') not in [96, 97]:
-            return
+        # if report.get('rx_chain_num') not in [96, 97]:
+        #     return
         
         # Create a copy to avoid modifying the original report
         row_data = report.copy()
@@ -100,7 +100,18 @@ class CSVCsiWriter:
                 row_data[f'csi_q_{i}'] = val
             del row_data['csi_q']
         if 'rx_chain_num' in row_data:
-            row_data['rx_chain_num'] = 'rx0-tx0' if row_data['rx_chain_num'] == 96 else 'rx0-tx1'
+            if row_data['rx_chain_num'] == 96:
+                row_data['rx_chain_num'] = 'rx0-tx0'
+            elif row_data['rx_chain_num'] == 97:
+                row_data['rx_chain_num'] = 'rx0-tx1'
+            elif row_data['rx_chain_num'] == 98:
+                row_data['rx_chain_num'] = 'rx1-tx0'
+            elif row_data['rx_chain_num'] == 99:
+                row_data['rx_chain_num'] = 'rx1-tx1'
+            elif row_data['rx_chain_num'] == 100:
+                row_data['rx_chain_num'] = 'rx2-tx0'
+            elif row_data['rx_chain_num'] == 101:
+                row_data['rx_chain_num'] = 'rx2-tx1'
         # Filter fields based on _get_fieldnames
         fieldnames = set(self._get_fieldnames())
         filtered = {k:v for k,v in row_data.items() if k in fieldnames}
