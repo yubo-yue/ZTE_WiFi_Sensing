@@ -94,10 +94,12 @@ def udp_ok_listener(ip, app):
 
 def udp_listener(ip, port, app):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    csv_writer = CSVCsiWriter(max_records = 10000)
+    csv_writer = CSVCsiWriter(max_records = 10000, output_dir="data/user1_pos5_static")
     recv_cnt = 0
     report_cnt = 0
     last_time = time.time()
+    run_start_time = None
+    stop_triggered = False
 
     # try:
     sock.bind((ip, port))
@@ -105,15 +107,32 @@ def udp_listener(ip, port, app):
 
     while True:
         data, addr = sock.recvfrom(8192)
-        report = parse_csi_data(data)
-        if report:
-            app.update_csi_result(report['csi_i'], report['csi_q'])
-            if app.is_csi_plot_updating == False:
-                threading.Thread(target=app.update_plot, daemon=True).start()
-            app.update_statistic(report)
-            csv_writer.write(report)
-            recv_cnt += 1
-            report_cnt += 1
+        if app.is_running:
+            if run_start_time is None:
+                run_start_time = time.time()
+                stop_triggered = False
+            
+            if not stop_triggered and time.time() - run_start_time >= 5.0:
+                app.master.after(0, app.toggle_button.invoke)
+                stop_triggered = True
+
+            if not stop_triggered:
+                print("app is collecting")
+                
+                report = parse_csi_data(data)
+                print ("data collected:", report)
+                if report:
+                    app.update_csi_result(report['csi_i'], report['csi_q'])
+                    if app.is_csi_plot_updating == False:
+                        threading.Thread(target=app.update_plot, daemon=True).start()
+                    app.update_statistic(report)
+                    csv_writer.write(report)
+                    recv_cnt += 1
+                    report_cnt += 1
+        else:
+            run_start_time = None
+            stop_triggered = False
+
         current_time = time.time()
         if current_time - last_time >= 1.0:
             app.update_report_rate(report_cnt)

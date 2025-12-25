@@ -40,6 +40,7 @@ class ZTECsiTool:
         self.refresh_interval = 0.05
         self.is_csi_plot_updating = False
         self.is_stat_widget_updating = False
+        self.is_running = False
         self.init_csi_config()
         self.init_plot()
         self.init_stat()
@@ -138,7 +139,7 @@ class ZTECsiTool:
         self.mac_label = tk.Label(self.mac_frame, text='MAC:')
         self.mac_label.grid(row=0, column=0, padx=5, pady=5, sticky='w')
         self.mac_entry = tk.Entry(self.mac_frame)
-        self.mac_entry.insert(0, '0a:19:c6:51:00:12')
+        self.mac_entry.insert(0, '9c:58:84:02:af:13')
         self.mac_entry.grid(row=0, column=1, padx=5, pady=5)
         self.mac_button = tk.Button(self.cfg_widget['frame'], text='Set', command=self.send_sta_filter_command, width=5)
         self.mac_button.grid(row=row, column=2, padx=5, pady=5)
@@ -168,7 +169,19 @@ class ZTECsiTool:
         self.cfg_warn_lable.grid(row=row, column=0, padx=5, pady=5)
         row += 1
 
+        self.toggle_button = tk.Button(self.cfg_widget['frame'], text="Start", command=self.toggle_running_state, width=20)
+        self.toggle_button.grid(row=row, column=0, columnspan=3, padx=5, pady=5, sticky='w')
+        row += 1
+
         self.tot_row = row
+    
+    def toggle_running_state(self):
+        if self.is_running:
+            self.is_running = False
+            self.toggle_button.config(text="Start")
+        else:
+            self.is_running = True
+            self.toggle_button.config(text="Pause")
     
     def init_plot(self):
         self.report_rate_label = tk.Label(self.master, text="report rate: 0/s")

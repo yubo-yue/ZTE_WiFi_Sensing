@@ -2,6 +2,7 @@ import struct
 from collections import OrderedDict
 import csv
 import os
+import time
 from datetime import datetime
 
 VENDOR_MAP = {
@@ -42,14 +43,16 @@ MCS_MAP = {
 }
 
 class CSVCsiWriter:
-    def __init__(self, max_records = 1000, output_dir = "data"):
+    def __init__(self, max_records = 1000, output_dir = "data", duration=5.0):
         self.max_records = max_records
         self.output_dir = output_dir
+        self.duration = duration
         self.current_count = 0
         self.part_number = 0
         self.file = None
         self.writer = None
         self.base_filename = None
+        self.file_start_time = time.time()
         os.makedirs(output_dir, exist_ok=True)
         self._new_file()
     
@@ -60,30 +63,61 @@ class CSVCsiWriter:
         self.base_filename = f"{timestamp}_part{self.part_number}.csv"
         self.file_path = os.path.join(self.output_dir, self.base_filename)
         self.file = open(self.file_path, 'w', newline='')
-        self.writer = csv.DictWriter(self.file, fieldnames=self._get_filenames())
+        self.writer = csv.DictWriter(self.file, fieldnames=self._get_fieldnames())
         self.writer.writeheader()
         self.current_count = 0
         self.part_number += 1
+        self.file_start_time = time.time()
     
-    def _get_filenames(self):
-        return [
-            'magic_high', 'packet_sn', 'vendor', 'chip_id', 'timestamp',
-            'status', 'bandwidth', 'phy_mode', 'rx_chain_num',
-            'data_len_per_chain', 'tot_data_length', 'peer_mac',
-            'chain_rssi', "chain_phase", "agc_gain", 'mcs', 'gi_type',
-            'coding', 'stbc', 'beamformed', 'dcm', 'ltf_size', 'sgi', 'csi_cnt'
-        ]
+    def _get_fieldnames(self):
+        # return [
+        #     'magic_high', 'packet_sn', 'vendor', 'chip_id', 'timestamp',
+        #     'status', 'bandwidth', 'phy_mode', 'rx_chain_num',
+        #     'data_len_per_chain', 'tot_data_length', 'peer_mac',
+        #     'chain_rssi', "chain_phase", "agc_gain", 'mcs', 'gi_type',
+        #     'coding', 'stbc', 'beamformed', 'dcm', 'ltf_size', 'sgi', 'csi_cnt'
+        # ]
+        base_fields = ['packet_sn', 'vendor', 'chip_id', 'timestamp', 'rx_chain_num', 'csi_cnt']
+        csi_i_fields = [f'csi_i_{i}' for i in range(512)]
+        csi_q_fields = [f'csi_q_{i}' for i in range(512)]
+        return base_fields + csi_i_fields + csi_q_fields
 
     def write(self, report):
-        filtered = {k:v for k,v in report.items() if k not in ['csi_i', 'csi_q']}
-        if self.current_count >= self.max_records:
+        if report.get('rx_chain_num') not in [96, 97]:
+            return
+        
+        # Create a copy to avoid modifying the original report
+        row_data = report.copy()
+        
+        # Expand csi_i and csi_q into individual fields
+        if 'csi_i' in row_data:
+            for i, val in enumerate(row_data['csi_i']):
+                row_data[f'csi_i_{i}'] = val
+            del row_data['csi_i']
+            
+        if 'csi_q' in row_data:
+            for i, val in enumerate(row_data['csi_q']):
+                row_data[f'csi_q_{i}'] = val
+            del row_data['csi_q']
+        if 'rx_chain_num' in row_data:
+            row_data['rx_chain_num'] = 'rx0-tx0' if row_data['rx_chain_num'] == 96 else 'rx0-tx1'
+        # Filter fields based on _get_fieldnames
+        fieldnames = set(self._get_fieldnames())
+        filtered = {k:v for k,v in row_data.items() if k in fieldnames}
+        
+        if (self.current_count >= self.max_records) or (time.time() - self.file_start_time >= self.duration):
             self._new_file()
         self.writer.writerow(filtered)
+        self.file.flush()
         self.current_count += 1
     
     def close(self):
         if self.file:
             self.file.close()
+            
+    def set_data_dir(self, output_dir):
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
     
 def parse_csi_data(data):
     try:
